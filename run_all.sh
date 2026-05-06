@@ -20,7 +20,8 @@
 #         ▼
 #   extract -> relabel ─┬─► dense ─┬─► project
 #                       │          └─► eur_project
-#                       └─► freq
+#                       ├─► freq
+#                       └─► missing
 #
 # Note: kinship is a SEPARATE pipeline (run_kinship.sh) — not in this DAG.
 # After this finishes:
@@ -90,7 +91,10 @@ JOB5=$(maybe_submit "freq"        run_freq.sbatch \
 JOB6=$(maybe_submit "eur_project" run_eur_project.sbatch \
     '[[ -f gsa/dense_eur_top10_groups.csv && -f affymetrix/dense_eur_top10_groups.csv ]]' "$JOB3")
 
-if [[ -z "${JOB1}${JOB2}${JOB3}${JOB4}${JOB5}${JOB6}" ]]; then
+JOB7=$(maybe_submit "missing"     run_missingness.sbatch \
+    '[[ -f gsa/missing_variants_gt_1pct.csv && -f affymetrix/missing_variants_gt_1pct.csv ]]' "$JOB2")
+
+if [[ -z "${JOB1}${JOB2}${JOB3}${JOB4}${JOB5}${JOB6}${JOB7}" ]]; then
     echo
     echo "All outputs already present. Nothing submitted."
     exit 0
@@ -105,3 +109,4 @@ echo "Logs:"
 [[ -n "$JOB4" ]] && echo "  logs/project.${JOB4}.log"
 [[ -n "$JOB5" ]] && echo "  logs/freq.${JOB5}.log"
 [[ -n "$JOB6" ]] && echo "  logs/eur_project.${JOB6}.log"
+[[ -n "$JOB7" ]] && echo "  logs/missing.${JOB7}.log"

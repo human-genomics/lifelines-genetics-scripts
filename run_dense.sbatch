@@ -3,7 +3,7 @@
 #SBATCH --output=logs/dense.%j.log
 #SBATCH --error=logs/dense.%j.log
 #SBATCH --time=01:00:00
-#SBATCH --mem=8G
+#SBATCH --mem=16G
 #SBATCH --cpus-per-task=2
 #
 # Submit:  sbatch run_dense.sbatch  (or via run_all.sh with dependency)

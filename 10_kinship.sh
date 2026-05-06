@@ -32,8 +32,9 @@
 #   merged_kinship.kin0                    KING table on merged data
 #
 # Tunable via env:
-#   KING_CUTOFF   minimum kinship reported in .kin0 (default 0.0884,
-#                 the standard 3rd-degree-relative threshold)
+#   KING_CUTOFF   minimum kinship reported in .kin0 (default 0.04,
+#                 captures up to ~5th-degree relatives; standard
+#                 3rd-degree cutoff would be 0.0884)
 
 set -euo pipefail
 trap 'echo "[10] ERROR on line $LINENO (last command: $BASH_COMMAND)" >&2' ERR
@@ -41,7 +42,7 @@ trap 'echo "[10] ERROR on line $LINENO (last command: $BASH_COMMAND)" >&2' ERR
 UKB_QC=ukb_snp_qc.txt
 RELATEDNESS_RSIDS=ukb_relatedness_rsids.txt
 MERGED_BASE=merged_kinship
-KING_CUTOFF=${KING_CUTOFF:-0.0884}
+KING_CUTOFF=${KING_CUTOFF:-0.04}
 
 THREADS=${SLURM_CPUS_PER_TASK:-2}
 if [[ -n "${SLURM_MEM_PER_NODE:-}" ]] && (( SLURM_MEM_PER_NODE > 2048 )); then

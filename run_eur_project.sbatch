@@ -3,7 +3,7 @@
 #SBATCH --output=logs/eur_project.%j.log
 #SBATCH --error=logs/eur_project.%j.log
 #SBATCH --time=02:00:00
-#SBATCH --mem=8G
+#SBATCH --mem=16G
 #SBATCH --cpus-per-task=2
 #
 # Submit:  sbatch run_eur_project.sbatch  (or via run_all.sh with dependency)
