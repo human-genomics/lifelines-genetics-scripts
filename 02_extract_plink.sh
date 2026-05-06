@@ -37,22 +37,6 @@ else
     MEM_MB=${PLINK_MEM_MB:-12000}
 fi
 
-# Plink2 finished a job successfully if its .log ends with "End time:".
-# We use this to distinguish a complete output from a killed-mid-write one.
-plink_completed() {
-    local prefix=$1
-    [[ -f "${prefix}.log" ]] && tail -n 5 "${prefix}.log" 2>/dev/null | grep -q '^End time:'
-}
-
-# Remove any partial output for this prefix (final + plink2 temporaries).
-clean_plink_output() {
-    local prefix=$1
-    rm -f \
-        "${prefix}".pgen "${prefix}".pvar "${prefix}".psam "${prefix}".log \
-        "${prefix}-temporary".pgen "${prefix}-temporary".pvar \
-        "${prefix}-temporary".pvar.zst "${prefix}-temporary".psam
-}
-
 # -- chromosomes (default 1..22; pass args to override, e.g. for smoke test) --
 if [[ $# -gt 0 ]]; then
     CHROMS=("$@")
@@ -109,16 +93,10 @@ build_id_lists() {
 
 extract_chr() {
     local panel=$1 outdir=$2 chr=$3
-    local prefix="$outdir/chr_${chr}"
 
-    if plink_completed "$prefix"; then
+    if [[ -f "$outdir/chr_${chr}.pgen" ]]; then
         echo "  [$panel chr$chr] already done, skipping"
         return 0
-    fi
-
-    if [[ -f "$prefix.pgen" || -f "${prefix}-temporary.pgen" ]]; then
-        echo "  [$panel chr$chr] partial output detected (no End time: in log) — cleaning up"
-        clean_plink_output "$prefix"
     fi
 
     local vcf
@@ -140,28 +118,22 @@ extract_chr() {
         --threads "$THREADS" \
         --memory "$MEM_MB" \
         --make-pgen \
-        --out "$prefix"
+        --out "$outdir/chr_${chr}"
 
-    plink_completed "$prefix" \
-        || { echo "ERROR: $prefix did not finish (no End time: in log)" >&2; exit 1; }
+    [[ -f "$outdir/chr_${chr}.pgen" ]] \
+        || { echo "ERROR: $outdir/chr_${chr}.pgen not produced" >&2; exit 1; }
 }
 
 merge_panel() {
     local panel=$1 outdir=$2
-    local prefix="$outdir/merged"
 
     if (( ${#CHROMS[@]} < 2 )); then
         echo "  [$panel] only ${#CHROMS[@]} chromosome(s); skipping merge"
         return 0
     fi
-    if plink_completed "$prefix"; then
-        echo "  [$panel] $prefix.pgen already exists and finished cleanly, skipping merge"
+    if [[ -f "$outdir/merged.pgen" ]]; then
+        echo "  [$panel] merged.pgen already exists, skipping merge"
         return 0
-    fi
-    if [[ -f "$prefix.pgen" || -f "${prefix}-merge.pgen" ]]; then
-        echo "  [$panel] partial merge detected — cleaning up"
-        clean_plink_output "$prefix"
-        rm -f "${prefix}-merge".{pgen,pvar,psam,log}
     fi
 
     : > "$outdir/merge_list.txt"
@@ -177,9 +149,9 @@ merge_panel() {
         --make-pgen \
         --out "$outdir/merged"
 
-    plink_completed "$prefix" \
-        || { echo "ERROR: $prefix did not finish (no End time: in log)" >&2; exit 1; }
-    echo "  [$panel] merged: $(wc -l < "$prefix.pvar") variant lines (incl. header)"
+    [[ -f "$outdir/merged.pgen" ]] \
+        || { echo "ERROR: $outdir/merged.pgen not produced" >&2; exit 1; }
+    echo "  [$panel] merged: $(wc -l < "$outdir/merged.pvar") variant lines (incl. header)"
 }
 
 run_panel() {
