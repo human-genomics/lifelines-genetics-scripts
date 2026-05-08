@@ -54,9 +54,15 @@ fi
 # -- modules --
 # plink2 is needed for pgen->bed conversion and for KING.
 # plink1 is needed for --bmerge (plink2 has no equivalent for bfile merging).
+#
+# Both PLINK modules belong to the same Lmod "PLINK" family, so loading
+# one auto-unloads the other. We load PLINK/1.x FIRST and capture the
+# absolute path to its binary (plink1's file on disk remains valid even
+# after its module is unloaded). Then we load PLINK/2 LAST so plink2 is
+# the one on PATH for the rest of the script.
+#
 # Module names below match what was visible in ssh_output.txt; if your
 # cluster uses different names, run `module avail PLINK` and edit.
-module load PLINK/2.0-alpha6.20-20250707
 module load PLINK/1.9 2>/dev/null \
     || module load PLINK/1.90 2>/dev/null \
     || module load plink/1.9 2>/dev/null \
@@ -64,7 +70,11 @@ module load PLINK/1.9 2>/dev/null \
 
 # Resolve which binary name is plink1 (some installs use 'plink', others 'plink1')
 PLINK1=$(command -v plink1 || command -v plink || true)
-[[ -n "$PLINK1" ]] || { echo "ERROR: neither 'plink1' nor 'plink' on PATH after module load" >&2; exit 1; }
+[[ -n "$PLINK1" ]] || { echo "ERROR: neither 'plink1' nor 'plink' on PATH after PLINK 1.x module load" >&2; exit 1; }
+# Resolve to absolute path before plink1's module is swapped out
+PLINK1=$(readlink -f "$PLINK1")
+
+module load PLINK/2.0-alpha6.20-20250707
 
 echo "=== Pre-flight ==="
 echo "  hostname:    $(hostname)"
