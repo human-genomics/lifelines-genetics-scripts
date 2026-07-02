@@ -13,6 +13,7 @@ ukb_relatedness_rsids.txt
 pca_ref/
 pca_ref_eur/
 eur_pca_snps.txt
+pgs_scores/
 
 # Pipeline outputs
 gsa/
@@ -30,3 +31,5 @@ merged_kinship.*
 .DS_Store
 __pycache__/
 *.pyc
+
+context/

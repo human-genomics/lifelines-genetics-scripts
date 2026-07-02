@@ -1,17 +1,18 @@
 # lifelines-genetics-scripts
 
-QC and ancestry pipeline for the [Lifelines](https://www.lifelines-biobank.com/) cohort's two genotyping panels — **GSA** and **Affymetrix** — built on [PLINK 1.9](https://www.cog-genomics.org/plink/) / [PLINK 2](https://www.cog-genomics.org/plink/2.0/) and run on the UMCG SLURM cluster. For each panel the pipeline merges per-chromosome VCFs into a single pfile, relabels variants to rsids, projects samples onto two reference PCAs (super-population and EUR-balanced), and computes allele-frequency / missingness QC. A separate kinship pipeline merges both panels and runs [KING](https://www.kingrelatedness.com/) to surface cross-panel relateds.
+QC and ancestry pipeline for the [Lifelines](https://www.lifelines-biobank.com/) cohort's two genotyping panels — **GSA** and **Affymetrix** — built on [PLINK 1.9](https://www.cog-genomics.org/plink/) / [PLINK 2](https://www.cog-genomics.org/plink/2.0/) and run on the UMCG SLURM cluster. For each panel the pipeline merges per-chromosome VCFs into a single pfile, relabels variants to rsids, projects samples onto two reference PCAs (super-population and EUR-balanced), and computes allele-frequency / missingness QC. A separate kinship pipeline merges both panels and runs [KING](https://www.kingrelatedness.com/) to surface cross-panel relateds. Optional EGFR/HDL PGS scoring runs on the full rsid-keyed pfiles.
 
 ## Overview
 
-The pipeline runs in **two steps**, both launched from the **login node**:
+The core pipeline runs in **two steps**, both launched from the **login node**. Optional PGS scoring is a third entrypoint:
 
 ```bash
-bash run_all.sh        # 1. main QC + ancestry pipeline (chains 7 SLURM jobs)
-bash run_kinship.sh    # 2. cross-panel KING kinship — must run AFTER run_all.sh
+bash run_all.sh          # 1. main QC + ancestry pipeline (chains 7 SLURM jobs)
+bash run_kinship.sh      # 2. cross-panel KING kinship — must run AFTER run_all.sh
+bash run_pgs_scores.sh   # optional EGFR/HDL PGS scoring on merged_rsid pfiles
 ```
 
-`run_kinship.sh` consumes `dense.pgen` outputs from `run_all.sh`, so it must come second. Both scripts are idempotent: each step's outputs are checked first, and the step is skipped if they already exist. Re-running after success exits in seconds.
+`run_kinship.sh` consumes `dense.pgen` outputs from `run_all.sh`, so it must come second. `run_pgs_scores.sh` consumes `merged_rsid.pgen` outputs from `run_all.sh`, downloads the public score files, and submits one SLURM scoring job. These entrypoints are idempotent: each step's outputs are checked first, and the step is skipped if they already exist. Re-running after success exits in seconds.
 
 ### What the pipeline reads
 
@@ -22,14 +23,18 @@ bash run_kinship.sh    # 2. cross-panel KING kinship — must run AFTER run_all.
   - The [public-statgen](https://github.com/jesseICR/public-statgen) reference PCA (super-population assignment).
 - **Bundled reference data** in the repo: `eur_pca_balanced.{eigenvec.allele,acount}` and `centroids_pc6.tsv` for EUR-balanced projection.
 - **`ukb_snp_qc.txt`** — UK Biobank QC SNP file, downloaded by `run_kinship.sh` to identify the relatedness-SNP subset.
+- **Public EGFR/HDL PGS score files**, downloaded automatically by `run_pgs_scores.sh` from:
+  - `http://elvehoj.s3-website-us-east-1.amazonaws.com/egfr.plink_score.snpinfo_a1.tsv`
+  - `http://elvehoj.s3-website-us-east-1.amazonaws.com/hdl.plink_score.snpinfo_a1.tsv`
 
 ### What the pipeline writes
 
-All outputs land in three locations under the repo root:
+Outputs land in these locations under the repo root:
 
 - `gsa/` — per-panel intermediates and analyses for the GSA panel.
 - `affymetrix/` — same, for the Affymetrix panel.
 - Repo root — cross-panel kinship outputs only (`merged_kinship.*`).
+- `pgs_scores/` — downloaded public EGFR/HDL score TSVs, cached locally and gitignored.
 - `logs/<step>.<jobid>.log` — combined stdout/stderr per SLURM job.
 
 ### DAG
@@ -43,6 +48,9 @@ run_all.sh:
 
 run_kinship.sh:
     kinship   (consumes dense.pgen from both panels)
+
+run_pgs_scores.sh:
+    download score TSVs → score   (consumes merged_rsid.pgen from both panels)
 ```
 
 ## Outputs
@@ -64,6 +72,8 @@ run_kinship.sh:
 | missing | `missing.smiss` / `missing.vmiss` | plink2 per-sample / per-variant missingness |
 | missing | **`missing_samples_gt_1pct.csv`** | Samples with > 1% missingness |
 | missing | **`missing_variants_gt_1pct.csv`** | Variants missing in > 1% of samples |
+| pgs_scores | `pgs/egfr.sscore` | EGFR PGS score from the public S3 score file |
+| pgs_scores | `pgs/hdl.sscore` | HDL PGS score from the public S3 score file |
 
 Bold rows are the headline analytic outputs; the others are intermediates.
 
@@ -90,6 +100,17 @@ Bold rows are the headline analytic outputs; the others are intermediates.
 
 8. **kinship** (`run_kinship.sbatch` → `10_kinship.sh`) — subsets each panel's `dense.*` to UKB relatedness rsids, converts to bfile, merges the two panel bfiles with `plink1 --bmerge` (auto-excludes mismatched SNPs and retries), and runs `plink2 --make-king-table` on the merged bfile. The merge is what lets cross-panel relateds appear in the kinship table.
 
+### `run_pgs_scores.sh` — EGFR/HDL polygenic scores (1 SLURM job)
+
+9. **pgs_scores** (`run_pgs_scores.sbatch` → `14_score_pgs.sh`) — downloads `egfr.plink_score.snpinfo_a1.tsv` and `hdl.plink_score.snpinfo_a1.tsv` from the public S3 website into `pgs_scores/`, validates the `SNP A1 BETA` score format and row count, then runs `plink2 --score ... 1 2 3 header cols=+scoresums` on `gsa/merged_rsid` and `affymetrix/merged_rsid`. This produces four `.sscore` files: EGFR and HDL for each panel.
+
+Example manual download command, matching what `run_pgs_scores.sh` does automatically:
+
+```bash
+wget -O pgs_scores/egfr.plink_score.snpinfo_a1.tsv \
+  http://elvehoj.s3-website-us-east-1.amazonaws.com/egfr.plink_score.snpinfo_a1.tsv
+```
+
 ### Smoke test
 
 Before committing to a 24h `extract` run, validate on chr 22 only:
@@ -115,3 +136,4 @@ Every `run_*.sbatch` requests **64 GB** RAM and emails `mintza@mskcc.org` and `j
 | `run_project.sbatch` | 2h | |
 | `run_eur_project.sbatch` | 2h | |
 | `run_kinship.sbatch` | 4h | Separate entry point — submitted by `run_kinship.sh` |
+| `run_pgs_scores.sbatch` | 8h | Separate entry point — submitted by `run_pgs_scores.sh` |
