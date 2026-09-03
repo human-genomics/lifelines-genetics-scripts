@@ -12,7 +12,7 @@
 set -euo pipefail
 trap 'echo "[06] ERROR on line $LINENO" >&2' ERR
 
-BASE=https://raw.githubusercontent.com/jesseICR/public-statgen/main/outputs/pca
+BASE=https://raw.githubusercontent.com/human-genomics/public-statgen/main/outputs/pca
 DIR=pca_ref
 mkdir -p "$DIR"
 

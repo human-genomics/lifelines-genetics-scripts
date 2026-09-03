@@ -7,7 +7,7 @@
 set -euo pipefail
 trap 'echo "[04] ERROR on line $LINENO" >&2' ERR
 
-URL=https://raw.githubusercontent.com/jesseICR/public-statgen/main/rsids_dense_chr1_22.txt
+URL=https://raw.githubusercontent.com/human-genomics/public-statgen/main/rsids_dense_chr1_22.txt
 OUT=rsids_dense_chr1_22.txt
 
 verify() {

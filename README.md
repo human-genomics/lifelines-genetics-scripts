@@ -20,7 +20,7 @@ bash run_pgs_scores.sh   # optional EGFR/HDL PGS scoring on merged_rsid pfiles
 - **`snp.info`** — Lifelines-supplied variant metadata used for rsid relabeling and reference allele frequencies.
 - **Public reference data**, downloaded automatically by `run_all.sh`:
   - The dense rsid list (~500K SNPs).
-  - The [public-statgen](https://github.com/jesseICR/public-statgen) reference PCA (super-population assignment).
+  - The [public-statgen](https://github.com/human-genomics/public-statgen) reference PCA (super-population assignment).
 - **Bundled reference data** in the repo: `eur_pca_balanced.{eigenvec.allele,acount}` and `centroids_pc6.tsv` for EUR-balanced projection.
 - **`ukb_snp_qc.txt`** — UK Biobank QC SNP file, downloaded by `run_kinship.sh` to identify the relatedness-SNP subset.
 - **Public EGFR/HDL PGS score files**, downloaded automatically by `run_pgs_scores.sh` from:

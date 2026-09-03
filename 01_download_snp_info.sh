@@ -8,7 +8,7 @@
 set -euo pipefail
 trap 'echo "[01] ERROR on line $LINENO" >&2' ERR
 
-URL=https://github.com/jesseICR/sbayesrc-liftover/releases/download/v1.0/snp.info
+URL=https://github.com/human-genomics/sbayesrc-liftover/releases/download/v1.0/snp.info
 OUT=snp.info
 
 verify() {
